@@ -28,13 +28,10 @@ jobs:
             *) echo "未知次版本号: $NDK_MINOR"; exit 1 ;;
           esac
 
-          NDK_TAG="r${NDK_MAJOR}${NDK_LETTER}"           # r28b
-          NDK_BRANCH="ndk-release-r${NDK_MAJOR}"         # ndk-release-r28
-
-          echo "NDK_FULL=$NDK_FULL" >> $GITHUB_ENV
+          NDK_TAG="ndk-r${NDK_MAJOR}${NDK_LETTER}"  # 生成 ndk-r28b
           echo "NDK_TAG=$NDK_TAG" >> $GITHUB_ENV
-          echo "NDK_BRANCH=$NDK_BRANCH" >> $GITHUB_ENV
-          echo "解析结果: $NDK_FULL → $NDK_TAG (分支 $NDK_BRANCH)"
+
+          echo "解析结果: $NDK_FULL → $NDK_TAG"
 
       - name: Install repo tool
         run: |
@@ -47,7 +44,8 @@ jobs:
         run: |
           mkdir -p /tmp/ndk-src && cd /tmp/ndk-src
           repo init -u https://android.googlesource.com/platform/manifest \
-            -b "${{ env.NDK_BRANCH }}" --partial-clone --depth=1
+            -b "${{ env.NDK_TAG }}" \
+            --partial-clone --depth=1
           repo sync -c -j$(nproc) --no-tags --optimized-fetch
 
       - name: Build NDK for aarch64
