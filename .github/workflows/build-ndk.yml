@@ -1,0 +1,62 @@
+name: Build Termux NDK (aarch64)
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [cdda-toolchain-updated]
+
+jobs:
+  parse-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse CDDA NDK version
+        id: parse
+        run: |
+          PROPS=$(curl -fsSL "https://raw.githubusercontent.com/CleverRaven/Cataclysm-DDA/master/android/gradle.properties")
+          NDK_FULL=$(echo "$PROPS" | grep -oP '^override_ndkVersion=\K.+')
+
+          NDK_MAJOR=$(echo "$NDK_FULL" | cut -d. -f1)   # 28
+          NDK_MINOR=$(echo "$NDK_FULL" | cut -d. -f2)   # 1
+
+          # 次版本数字 → 字母：1→b, 2→c, 3→d ...
+          case "$NDK_MINOR" in
+            0) NDK_LETTER="a" ;;
+            1) NDK_LETTER="b" ;;
+            2) NDK_LETTER="c" ;;
+            3) NDK_LETTER="d" ;;
+            4) NDK_LETTER="e" ;;
+            *) echo "未知次版本号: $NDK_MINOR"; exit 1 ;;
+          esac
+
+          NDK_TAG="r${NDK_MAJOR}${NDK_LETTER}"           # r28b
+          NDK_BRANCH="ndk-release-r${NDK_MAJOR}"         # ndk-release-r28
+
+          echo "NDK_FULL=$NDK_FULL" >> $GITHUB_ENV
+          echo "NDK_TAG=$NDK_TAG" >> $GITHUB_ENV
+          echo "NDK_BRANCH=$NDK_BRANCH" >> $GITHUB_ENV
+          echo "解析结果: $NDK_FULL → $NDK_TAG (分支 $NDK_BRANCH)"
+
+      - name: Init AOSP NDK repo
+        run: |
+          mkdir -p /tmp/ndk-src && cd /tmp/ndk-src
+          repo init -u https://android.googlesource.com/platform/manifest \
+            -b "${{ env.NDK_BRANCH }}" --partial-clone --depth=1
+          repo sync -c -j$(nproc) --no-tags --optimized-fetch
+
+      - name: Build NDK for aarch64
+        run: |
+          cd /tmp/ndk-src
+          # 按 NDK 官方 Building.md 使用 checkbuild.py
+          # 若仓库 docs/Building.md 有更具体的 Docker/Poetry 步骤，请替换以下命令
+          ./checkbuild.py --package --arch aarch64
+
+      - name: Package as tar.xz
+        run: |
+          XZ_OPT="-T0 -9e" tar -cJf termux-ndk-aarch64.tar.xz -C /tmp/ndk-src/out .
+          ls -lh termux-ndk-aarch64.tar.xz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: termux-ndk-${{ env.NDK_TAG }}-aarch64
+          path: termux-ndk-aarch64.tar.xz
+          compression-level: 0
