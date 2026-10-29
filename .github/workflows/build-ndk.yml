@@ -36,6 +36,13 @@ jobs:
           echo "NDK_BRANCH=$NDK_BRANCH" >> $GITHUB_ENV
           echo "解析结果: $NDK_FULL → $NDK_TAG (分支 $NDK_BRANCH)"
 
+      - name: Install repo tool
+        run: |
+          mkdir -p ~/.bin
+          echo "${HOME}/.bin" >> $GITHUB_PATH
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+rx ~/.bin/repo
+
       - name: Init AOSP NDK repo
         run: |
           mkdir -p /tmp/ndk-src && cd /tmp/ndk-src
