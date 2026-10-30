@@ -17,12 +17,11 @@ jobs:
           chmod a+rx ~/.bin/repo
           echo "${HOME}/.bin" >> $GITHUB_PATH
 
-      # 3) 全量同步 NDK r28b manifest（避开按路径 sync 的坑）
-      - name: Init & sync NDK source
+      - name: Init & sync NDK build source
         run: |
           mkdir -p /tmp/ndk-src && cd /tmp/ndk-src
           repo init -u https://android.googlesource.com/platform/manifest \
-            -b ndk-r28b --partial-clone --depth=1
+            -b ndk-r28-release --partial-clone --depth=1
           repo sync -c -j$(nproc) --no-tags --optimized-fetch
 
       - name: Locate build.py & llvm dirs
