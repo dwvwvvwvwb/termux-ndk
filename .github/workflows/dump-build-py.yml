@@ -42,6 +42,41 @@ jobs:
           echo "=== git log (recent) ==="
           git log --oneline -5
 
+      - name: Dump patch content & failure context
+        run: |
+          mkdir -p /tmp/diag
+          cd /tmp/llvm-src/toolchain/llvm_android
+
+          # 1) 所有补丁的完整内容
+          for p in ${{ github.workspace }}/patches/llvm_android/*.patch; do
+            f=$(basename "$p")
+            echo "===== $f =====" >> /tmp/diag/patches.txt
+            cat "$p" >> /tmp/diag/patches.txt
+            echo "" >> /tmp/diag/patches.txt
+          done
+
+          # 2) 失败位置附近实际代码
+          echo "===== base_builders.py 700-760 =====" > /tmp/diag/context.txt
+          sed -n '700,760p' src/llvm_android/base_builders.py >> /tmp/diag/context.txt
+          echo "===== configs.py 275-330 =====" >> /tmp/diag/context.txt
+          sed -n '275,330p' src/llvm_android/configs.py >> /tmp/diag/context.txt
+          echo "===== paths.py 50-110 =====" >> /tmp/diag/context.txt
+          sed -n '50,110p' src/llvm_android/paths.py >> /tmp/diag/context.txt
+
+          # 3) 找 r28b 对应的提交线索
+          echo "===== git log grep 530567 =====" > /tmp/diag/git-info.txt
+          git log --all --oneline --grep="530567" | head -20 >> /tmp/diag/git-info.txt
+          echo "===== tags (last 30) =====" >> /tmp/diag/git-info.txt
+          git tag | tail -30 >> /tmp/diag/git-info.txt
+          echo "===== current HEAD =====" >> /tmp/diag/git-info.txt
+          git log --oneline -3 >> /tmp/diag/git-info.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patch-diagnosis
+          path: /tmp/diag
+          compression-level: 9
+
       - name: Apply llvm_android patches (remap to src/llvm_android/)
         run: |
           cd /tmp/llvm-src/toolchain/llvm_android
