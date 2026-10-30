@@ -25,6 +25,19 @@ jobs:
             -b ndk-r28b --partial-clone --depth=1
           repo sync -c -j$(nproc) --no-tags --optimized-fetch
 
+      - name: Locate build.py & llvm dirs
+        run: |
+          echo "=== top-level dirs ==="
+          ls -la /tmp/ndk-src
+          echo "=== find build.py ==="
+          find /tmp/ndk-src -maxdepth 5 -name "build.py" -not -path "*/out/*" 2>/dev/null
+          echo "=== find llvm_android / llvm_project dirs ==="
+          find /tmp/ndk-src -maxdepth 4 -type d \( -name "llvm_android" -o -name "llvm-project" -o -name "llvm-toolchain" \) 2>/dev/null
+          echo "=== any path containing llvm (top 40) ==="
+          find /tmp/ndk-src -maxdepth 4 -type d -iname "*llvm*" 2>/dev/null | head -40
+          echo "=== repo list llvm ==="
+          cd /tmp/ndk-src && repo list 2>/dev/null | grep -i llvm || true
+
       # 4) 直接用 ${{ github.workspace }} 里的 patches/
       - name: Apply llvm_android patches
         run: |
