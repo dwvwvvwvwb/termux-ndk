@@ -42,12 +42,18 @@ jobs:
           echo "=== git log (recent) ==="
           git log --oneline -5
 
-      - name: Apply llvm_android patches
+      - name: Apply llvm_android patches (remap to src/llvm_android/)
         run: |
           cd /tmp/llvm-src/toolchain/llvm_android
+          mkdir -p /tmp/patched
           for p in ${{ github.workspace }}/patches/llvm_android/*.patch; do
-            echo "=== applying $p ==="
-            git apply -p3 "$p" || echo "FAILED: $p"
+            f=$(basename "$p")
+            # 把 toolchain/llvm_android/xxx.py 映射到 toolchain/llvm_android/src/llvm_android/xxx.py
+            sed -E 's#toolchain/llvm_android/(base_builders|builders|configs|paths)\.py#toolchain/llvm_android/src/llvm_android/\1.py#g' \
+              "$p" > "/tmp/patched/$f"
+            echo "=== applying $f ==="
+            # 现在前缀是 toolchain/llvm_android/src/llvm_android/，-p4 剥掉
+            git apply -p4 --whitespace=nowarn "/tmp/patched/$f" || echo "FAILED: $f"
           done
 
       - name: Dump build.py help & key files
