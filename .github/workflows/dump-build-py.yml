@@ -6,10 +6,8 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     steps:
-      # 1) 先 checkout，拿到本仓库里的 patches/
       - uses: actions/checkout@v4
 
-      # 2) 安装 repo
       - name: Install repo tool
         run: |
           mkdir -p ~/.bin
@@ -17,40 +15,34 @@ jobs:
           chmod a+rx ~/.bin/repo
           echo "${HOME}/.bin" >> $GITHUB_PATH
 
-      - name: Init & sync NDK build source
+      - name: Init & sync LLVM toolchain source
         run: |
-          mkdir -p /tmp/ndk-src && cd /tmp/ndk-src
+          mkdir -p /tmp/llvm-src && cd /tmp/llvm-src
           repo init -u https://android.googlesource.com/platform/manifest \
-            -b ndk-r28-release --partial-clone --depth=1
+            -b llvm-toolchain --partial-clone --depth=1
           repo sync -c -j$(nproc) --no-tags --optimized-fetch
 
       - name: Locate build.py & llvm dirs
         run: |
-          echo "=== top-level dirs ==="
-          ls -la /tmp/ndk-src
+          echo "=== toolchain dir ==="
+          ls -la /tmp/llvm-src/toolchain
           echo "=== find build.py ==="
-          find /tmp/ndk-src -maxdepth 5 -name "build.py" -not -path "*/out/*" 2>/dev/null
-          echo "=== find llvm_android / llvm_project dirs ==="
-          find /tmp/ndk-src -maxdepth 4 -type d \( -name "llvm_android" -o -name "llvm-project" -o -name "llvm-toolchain" \) 2>/dev/null
-          echo "=== any path containing llvm (top 40) ==="
-          find /tmp/ndk-src -maxdepth 4 -type d -iname "*llvm*" 2>/dev/null | head -40
+          find /tmp/llvm-src -maxdepth 5 -name "build.py" -not -path "*/out/*" 2>/dev/null
           echo "=== repo list llvm ==="
-          cd /tmp/ndk-src && repo list 2>/dev/null | grep -i llvm || true
+          cd /tmp/llvm-src && repo list 2>/dev/null | grep -i llvm || true
 
-      # 4) 直接用 ${{ github.workspace }} 里的 patches/
       - name: Apply llvm_android patches
         run: |
-          cd /tmp/ndk-src/toolchain/llvm_android
+          cd /tmp/llvm-src/toolchain/llvm_android
           for p in ${{ github.workspace }}/patches/llvm_android/*.patch; do
             echo "=== applying $p ==="
             git apply "$p" || echo "FAILED: $p"
           done
 
-      # 5) 收集 build.py 及其上下文
       - name: Dump build.py help & key files
         run: |
           mkdir -p /tmp/dump
-          cd /tmp/ndk-src/toolchain/llvm_android
+          cd /tmp/llvm-src/toolchain/llvm_android
           python3 build.py --help > /tmp/dump/help.txt 2>&1 || true
           cp build.py /tmp/dump/ 2>/dev/null || true
           cp README.md /tmp/dump/ 2>/dev/null || true
