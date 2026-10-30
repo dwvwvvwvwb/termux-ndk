@@ -31,6 +31,17 @@ jobs:
           echo "=== repo list llvm ==="
           cd /tmp/llvm-src && repo list 2>/dev/null | grep -i llvm || true
 
+
+      - name: Inspect llvm_android layout
+        run: |
+          cd /tmp/llvm-src/toolchain/llvm_android
+          echo "=== root ==="
+          ls -la
+          echo "=== find the patched files ==="
+          find . -maxdepth 3 \( -name "base_builders.py" -o -name "builders.py" -o -name "configs.py" -o -name "paths.py" \) 2>/dev/null
+          echo "=== git log (recent) ==="
+          git log --oneline -5
+
       - name: Apply llvm_android patches
         run: |
           cd /tmp/llvm-src/toolchain/llvm_android
