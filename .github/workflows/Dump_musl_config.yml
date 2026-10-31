@@ -1,0 +1,76 @@
+name: Dump musl config
+on:
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install repo tool
+        run: |
+          mkdir -p ~/.bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+rx ~/.bin/repo
+          echo "${HOME}/.bin" >> $GITHUB_PATH
+
+      - name: Init & sync LLVM toolchain
+        run: |
+          mkdir -p /tmp/llvm-src && cd /tmp/llvm-src
+          repo init -u https://android.googlesource.com/platform/manifest \
+            -b llvm-toolchain --partial-clone --depth=1
+          repo sync -c -j$(nproc) --no-tags --optimized-fetch
+
+      - name: Dump musl config & preset
+        run: |
+          cd /tmp/llvm-src/toolchain/llvm_android
+          echo "########## build.py (thin wrapper) ##########"
+          cat build.py
+
+          echo ""
+          echo "########## class LinuxMuslConfig ##########"
+          grep -n -A 50 "class LinuxMuslConfig" src/llvm_android/configs.py || echo "NOT FOUND"
+
+          echo ""
+          echo "########## preset musl in do_build.py ##########"
+          grep -n -B 5 -A 30 "musl" do_build.py | head -120 || echo "NOT FOUND"
+
+          echo ""
+          echo "########## hosts.Arch enum ##########"
+          grep -n -A 30 "class Arch" src/llvm_android/hosts.py || echo "NOT FOUND"
+
+          echo ""
+          echo "########## static link flags in configs/builders ##########"
+          grep -rn "static" src/llvm_android/configs.py src/llvm_android/base_builders.py | head -40 || true
+
+          echo ""
+          echo "########## preset definitions ##########"
+          grep -rn "preset" do_build.py | head -30 || true
+
+      - name: Save dump to artifact
+        run: |
+          cd /tmp/llvm-src/toolchain/llvm_android
+          mkdir -p /tmp/diag
+          {
+            echo "########## build.py ##########"
+            cat build.py
+            echo ""
+            echo "########## LinuxMuslConfig ##########"
+            grep -n -A 50 "class LinuxMuslConfig" src/llvm_android/configs.py
+            echo ""
+            echo "########## musl refs in do_build.py ##########"
+            grep -n -B 5 -A 30 "musl" do_build.py
+            echo ""
+            echo "########## hosts.Arch ##########"
+            grep -n -A 30 "class Arch" src/llvm_android/hosts.py
+            echo ""
+            echo "########## static flags ##########"
+            grep -rn "static" src/llvm_android/configs.py src/llvm_android/base_builders.py
+          } > /tmp/diag/musl.txt 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: musl-dump
+          path: /tmp/diag
+          compression-level: 9
