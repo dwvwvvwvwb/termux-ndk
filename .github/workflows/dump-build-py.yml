@@ -77,6 +77,16 @@ jobs:
           path: /tmp/diag
           compression-level: 9
 
+      - name: Dump musl config & preset
+        run: |
+          cd /tmp/llvm-src/toolchain/llvm_android
+          echo "===== LinuxMuslConfig =====" > /tmp/diag/musl.txt
+          grep -n -A 40 "class LinuxMuslConfig" src/llvm_android/configs.py >> /tmp/diag/musl.txt
+          echo "===== preset musl in do_build.py =====" >> /tmp/diag/musl.txt
+          grep -n -B 5 -A 30 "'musl'" do_build.py >> /tmp/diag/musl.txt
+          echo "===== build.py (thin wrapper) =====" >> /tmp/diag/musl.txt
+          cat build.py >> /tmp/diag/musl.txt
+
       - name: Apply llvm_android patches (remap to src/llvm_android/)
         run: |
           cd /tmp/llvm-src/toolchain/llvm_android
