@@ -48,6 +48,39 @@ jobs:
           echo "########## preset definitions ##########"
           grep -rn "preset" do_build.py | head -30 || true
 
+      - name: Diagnose r28b commit & patch conflicts
+        run: |
+          cd /tmp/llvm-src/toolchain/llvm_android
+
+          echo "===== A. Recent 60 commits ====="
+          git log --all --oneline | head -60
+
+          echo ""
+          echo "===== B. Search 530567 in commit messages ====="
+          git log --all --oneline --grep="530567" | head
+          git log --all --oneline --grep="r530567" | head
+
+          echo ""
+          echo "===== C. Search 530567 in content changes ====="
+          git log --all -S "530567" --oneline | head
+
+          echo ""
+          echo "===== D. Where is clang version defined ====="
+          grep -rn "clang-r5\|CLANG_VERSION" src/llvm_android/*.py 2>/dev/null | head -10
+
+          echo ""
+          echo "===== E. Apply patches with --3way to see conflicts ====="
+          for p in ${{ github.workspace }}/patches/llvm_android/*.patch; do
+            f=$(basename "$p")
+            sed -E 's#toolchain/llvm_android/(base_builders|builders|configs|paths)\.py#toolchain/llvm_android/src/llvm_android/\1.py#g' \
+              "$p" > "/tmp/patched/$f"
+            git apply --3way -p3 --whitespace=nowarn "/tmp/patched/$f" 2>&1 | head -5 || true
+          done
+
+          echo ""
+          echo "===== F. Conflict markers summary ====="
+          grep -rn "<<<<<<<" src/llvm_android/ | head -20 || echo "no conflicts"
+
       - name: Save dump to artifact
         run: |
           cd /tmp/llvm-src/toolchain/llvm_android
